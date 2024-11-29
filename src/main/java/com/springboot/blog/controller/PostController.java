@@ -4,6 +4,7 @@ import com.springboot.blog.payload.PostDto;
 import com.springboot.blog.payload.PostResponse;
 import com.springboot.blog.payload.PostResponseWrapper;
 import com.springboot.blog.service.PostService;
+import com.springboot.blog.exception.RateLimitExceededException;
 import com.springboot.blog.utils.AppConstants;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,7 +17,15 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.http.MediaType;
 import jakarta.validation.Valid;
 import java.util.List;
+
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import java.time.Duration;
 import java.io.IOException;
+
 @RestController
 @RequestMapping("/api/posts")
 @Tag(
@@ -25,9 +34,27 @@ import java.io.IOException;
 public class PostController {
 
     private PostService postService;
+    private final StringRedisTemplate redisTemplate;
 
-    public PostController(PostService postService) {
+    public PostController(PostService postService,StringRedisTemplate redisTemplate) {
         this.postService = postService;
+        this.redisTemplate = redisTemplate;
+    }
+
+    private boolean isRateLimited(String userId) {
+        String key = "rate_limit:" + userId;
+        ValueOperations<String, String> ops = redisTemplate.opsForValue();
+
+        String count = ops.get(key);
+        if (count == null) {
+            // Set a limit of 5 requests per minute
+            ops.set(key, "1", Duration.ofMinutes(1));
+            return false;
+        } else if (Integer.parseInt(count) < 5) {
+            ops.increment(key);
+            return false;
+        }
+        return true; // Rate limit exceeded
     }
 
     @Operation(
@@ -64,6 +91,12 @@ public class PostController {
             @RequestParam(value = "sortBy", defaultValue = AppConstants.DEFAULT_SORT_BY, required = false) String sortBy,
             @RequestParam(value = "sortDir", defaultValue = AppConstants.DEFAULT_SORT_DIRECTION, required = false) String sortDir
     ){
+        String userId = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes())
+                .getRequest()
+                .getRemoteAddr();
+        if (isRateLimited(userId)) {
+            throw new RateLimitExceededException("Rate limit exceeded. Try again later.");
+        }
         return postService.getAllPosts(pageNo, pageSize, sortBy, sortDir);
     }
 
