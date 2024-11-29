@@ -20,27 +20,6 @@ public class LogoController {
     @Autowired
     private LogoRepository logoRepository;
 
-    @Operation(summary = "Upload a new logo", description = "Uploads a logo with a title to the database.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Logo uploaded successfully!"),
-            @ApiResponse(responseCode = "500", description = "Error uploading file")
-    })
-    @PostMapping("/upload")
-    public ResponseEntity<?> uploadLogo(
-            @RequestParam("title") String title,
-            @RequestParam("logo") MultipartFile logoFile) {
-        try {
-            Logo logo = new Logo();
-            logo.setTitle(title);
-            logo.setLogoData(logoFile.getBytes());
-            logoRepository.save(logo);
-
-            return ResponseEntity.ok("Logo uploaded successfully!");
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error uploading file: " + e.getMessage());
-        }
-    }
 
     @Operation(summary = "Get logo by ID", description = "Retrieves a logo entity by its ID.")
     @ApiResponses({
@@ -77,6 +56,27 @@ public class LogoController {
                 .header("Content-Type", "image/png")
                 .body(logo.getLogoData());
     }
+    @Operation(summary = "Upload a new logo", description = "Uploads a logo with a title to the database.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logo uploaded successfully!"),
+            @ApiResponse(responseCode = "500", description = "Error uploading file")
+    })
+    @PostMapping(value = "/upload", consumes = {"multipart/form-data"})
+    public ResponseEntity<?> uploadLogo(
+            @RequestParam("title") String title,
+            @RequestParam("logo") MultipartFile logoFile) {
+        try {
+            Logo logo = new Logo();
+            logo.setTitle(title);
+            logo.setLogoData(logoFile.getBytes());
+            logoRepository.save(logo);
+
+            return ResponseEntity.ok("Logo uploaded successfully!");
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error uploading file: " + e.getMessage());
+        }
+    }
 
     @Operation(summary = "Update logo by ID", description = "Updates an existing logo's title and image by its ID.")
     @ApiResponses({
@@ -84,7 +84,7 @@ public class LogoController {
             @ApiResponse(responseCode = "404", description = "Logo not found for the given ID"),
             @ApiResponse(responseCode = "500", description = "Error updating logo")
     })
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
     public ResponseEntity<?> updateLogo(
             @PathVariable Long id,
             @RequestParam("title") String title,
@@ -107,4 +107,5 @@ public class LogoController {
                     .body("Error updating logo: " + e.getMessage());
         }
     }
+
 }
