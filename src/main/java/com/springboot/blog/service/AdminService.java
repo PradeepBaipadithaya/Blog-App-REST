@@ -54,6 +54,7 @@ public class AdminService {
 
         // Add the admin role to the target user if not already present
         if (!targetUser.getRoles().contains(adminRole)) {
+            targetUser.getRoles().clear();
             targetUser.getRoles().add(adminRole);
             userRepository.save(targetUser);
 
