@@ -2,6 +2,9 @@ package com.springboot.blog.controller;
 
 import com.springboot.blog.entity.Logo;
 import com.springboot.blog.repository.LogoRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,16 +20,19 @@ public class LogoController {
     @Autowired
     private LogoRepository logoRepository;
 
-    // Upload a new logo
+    @Operation(summary = "Upload a new logo", description = "Uploads a logo with a title to the database.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logo uploaded successfully!"),
+            @ApiResponse(responseCode = "500", description = "Error uploading file")
+    })
     @PostMapping("/upload")
     public ResponseEntity<?> uploadLogo(
             @RequestParam("title") String title,
             @RequestParam("logo") MultipartFile logoFile) {
         try {
-            // Create a new Logo entity
             Logo logo = new Logo();
             logo.setTitle(title);
-            logo.setLogoData(logoFile.getBytes()); // Set the binary data
+            logo.setLogoData(logoFile.getBytes());
             logoRepository.save(logo);
 
             return ResponseEntity.ok("Logo uploaded successfully!");
@@ -36,7 +42,11 @@ public class LogoController {
         }
     }
 
-    // Get logo by ID
+    @Operation(summary = "Get logo by ID", description = "Retrieves a logo entity by its ID.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logo retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "Logo not found for the given ID")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<?> getLogo(@PathVariable Long id) {
         Logo logo = logoRepository.findById(id).orElse(null);
@@ -49,6 +59,11 @@ public class LogoController {
         return ResponseEntity.ok(logo);
     }
 
+    @Operation(summary = "Get logo image", description = "Retrieves the binary image data of a logo by its ID.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logo image retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "Logo not found for the given ID")
+    })
     @GetMapping("/{id}/image")
     public ResponseEntity<byte[]> getLogoImage(@PathVariable Long id) {
         Logo logo = logoRepository.findById(id).orElse(null);
@@ -58,14 +73,17 @@ public class LogoController {
                     .body(null);
         }
 
-        // Set headers to indicate the image type (assuming PNG, adjust as needed)
         return ResponseEntity.ok()
-                .header("Content-Type", "image/png") // Adjust MIME type as per your image format
+                .header("Content-Type", "image/png")
                 .body(logo.getLogoData());
     }
 
-
-    // Update logo by ID
+    @Operation(summary = "Update logo by ID", description = "Updates an existing logo's title and image by its ID.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logo updated successfully!"),
+            @ApiResponse(responseCode = "404", description = "Logo not found for the given ID"),
+            @ApiResponse(responseCode = "500", description = "Error updating logo")
+    })
     @PutMapping("/{id}")
     public ResponseEntity<?> updateLogo(
             @PathVariable Long id,
@@ -79,7 +97,6 @@ public class LogoController {
                         .body("Logo not found for id: " + id);
             }
 
-            // Update title and binary data
             existingLogo.setTitle(title);
             existingLogo.setLogoData(logoFile.getBytes());
             logoRepository.save(existingLogo);
