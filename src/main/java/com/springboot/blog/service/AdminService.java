@@ -26,27 +26,28 @@ public class AdminService {
      * @param userId        the ID of the user to be promoted.
      */
     public void promoteUserToAdmin(String adminUsername, Long userId) {
-        // Ensure the requesting user is an admin
-        User admin = userRepository.findByUsername(adminUsername)
-                .orElseThrow(() -> new IllegalArgumentException("Admin user not found."));
-        if (!isAdmin(admin)) {
-            throw new IllegalArgumentException("Only admins can promote users.");
+        // Validate the admin making the request
+        User adminUser = userRepository.findByUsername(adminUsername)
+                .orElseThrow(() -> new IllegalArgumentException("Admin user not found"));
+
+        if (!isAdmin(adminUser)) {
+            throw new IllegalArgumentException("Only admins can promote users to admin.");
         }
 
-        // Find the user to promote
-        User user = userRepository.findById(userId)
+        // Fetch the target user
+        User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found."));
 
-        // Find the ADMIN role
+        // Fetch the admin role
         Role adminRole = roleRepository.findByName("ROLE_ADMIN")
-                .orElseThrow(() -> new IllegalArgumentException("Admin role not found."));
+                .orElseThrow(() -> new IllegalStateException("Admin role not found."));
 
-        // Add the ADMIN role to the user if not already assigned
-        if (!user.getRoles().contains(adminRole)) {
-            user.getRoles().add(adminRole);
-            userRepository.save(user);
+        // Add the admin role to the target user if not already present
+        if (!targetUser.getRoles().contains(adminRole)) {
+            targetUser.getRoles().add(adminRole);
+            userRepository.save(targetUser);
         } else {
-            throw new IllegalArgumentException("User is already an admin.");
+            throw new IllegalStateException("User is already an ADMIN.");
         }
     }
 
