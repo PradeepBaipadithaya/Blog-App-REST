@@ -2,23 +2,41 @@ package com.springboot.blog.service.impl;
 
 import com.springboot.blog.entity.Category;
 import com.springboot.blog.entity.Post;
+import com.springboot.blog.exception.InvalidImageException;
 import com.springboot.blog.exception.ResourceNotFoundException;
+import com.springboot.blog.payload.ImageValidationResponse;
 import com.springboot.blog.payload.PostDto;
 import com.springboot.blog.payload.PostResponse;
+import com.springboot.blog.payload.PostResponseWrapper;
 import com.springboot.blog.repository.CategoryRepository;
 import com.springboot.blog.repository.PostRepository;
 import com.springboot.blog.service.PostService;
 import org.modelmapper.ModelMapper;
+
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
+
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,7 +56,9 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public PostDto createPost(PostDto postDto) {
+    public PostResponseWrapper createPost(PostDto postDto) throws IOException {
+        MultipartFile imageFile = postDto.getImage();
+        ImageValidationResponse validationResponse = null;
 
         Category category = categoryRepository.findById(postDto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", postDto.getCategoryId()));
@@ -46,11 +66,26 @@ public class PostServiceImpl implements PostService {
         // convert DTO to entity
         Post post = mapToEntity(postDto);
         post.setCategory(category);
-        Post newPost = postRepository.save(post);
+        if (imageFile != null)
+            validationResponse = validateImageWithAPI(imageFile, post.getCategory().getName());//Send Image to External API
 
-        // convert entity to DTO
-        PostDto postResponse = mapToDTO(newPost);
-        return postResponse;
+
+        assert validationResponse != null;
+        if (Objects.equals(validationResponse.getResult(), "No")) {
+            throw new InvalidImageException("Image does not matches with the Category-Reason: "+validationResponse.getReasoning(),"Invalid image");
+        }
+        if (Objects.equals(validationResponse.getResult(), "Yes")) {
+            System.out.println("Response: " + validationResponse);
+
+            Post newPost = postRepository.save(post);
+
+            // convert entity to DTO
+            PostDto postResponse = mapToDTO(newPost);
+            return new PostResponseWrapper(validationResponse,postResponse);
+        }
+        return null;
+
+
     }
 
     @Override
@@ -89,9 +124,12 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
+
     @CacheEvict(value = "posts", key = "#postDto.categoryId")
-    public PostDto updatePost(PostDto postDto, long id) {
+    public PostDto updatePost(PostDto postDto, long id) throws IOException {
         // get post by id from the database
+        MultipartFile imageFile = postDto.getImage();
+        ImageValidationResponse validationResponse = null;
         Post post = postRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Post", "id", id));
 
         Category category = categoryRepository.findById(postDto.getCategoryId())
@@ -101,8 +139,22 @@ public class PostServiceImpl implements PostService {
         post.setDescription(postDto.getDescription());
         post.setContent(postDto.getContent());
         post.setCategory(category);
-        Post updatedPost = postRepository.save(post);
-        return mapToDTO(updatedPost);
+        if (imageFile != null)
+            validationResponse = validateImageWithAPI(imageFile, post.getCategory().getName());//Send Image to External API
+
+
+        assert validationResponse != null;
+        if (Objects.equals(validationResponse.getResult(), "No")) {
+            throw new InvalidImageException("Image does not matches with the Category-Reason: "+validationResponse.getReasoning(),"Invalid image");
+        }
+        if (Objects.equals(validationResponse.getResult(), "Yes")) {
+            System.out.println("Response: " + validationResponse);
+
+            Post updatedPost = postRepository.save(post);
+            return mapToDTO(updatedPost);
+        }
+
+        return null;
     }
 
     @Override
@@ -128,22 +180,82 @@ public class PostServiceImpl implements PostService {
 
     // convert Entity into DTO
     private PostDto mapToDTO(Post post){
-        PostDto postDto = mapper.map(post, PostDto.class);
-//        PostDto postDto = new PostDto();
-//        postDto.setId(post.getId());
-//        postDto.setTitle(post.getTitle());
-//        postDto.setDescription(post.getDescription());
-//        postDto.setContent(post.getContent());
+
+        PostDto postDto = new PostDto();
+        postDto.setId(post.getId());
+        postDto.setTitle(post.getTitle());
+        postDto.setDescription(post.getDescription());
+        postDto.setContent(post.getContent());
+        if (post.getImage() != null) {
+            postDto.setImageUrl(Base64.getEncoder().encodeToString(post.getImage()));
+        }
         return postDto;
     }
 
     // convert DTO to entity
-    private Post mapToEntity(PostDto postDto){
-        Post post = mapper.map(postDto, Post.class);
-//        Post post = new Post();
-//        post.setTitle(postDto.getTitle());
-//        post.setDescription(postDto.getDescription());
-//        post.setContent(postDto.getContent());
+    private Post mapToEntity(PostDto postDto) throws IOException {
+
+        Post post = new Post();
+        post.setTitle(postDto.getTitle());
+        post.setDescription(postDto.getDescription());
+        post.setContent(postDto.getContent());
+        if (postDto.getImage() != null) {
+            post.setImage(postDto.getImage().getBytes());
+        }
         return post;
     }
+    private ImageValidationResponse validateImageWithAPI(MultipartFile image, String category) throws IOException {
+        RestTemplate restTemplate = new RestTemplate();
+
+        // Prepare headers
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        // Prepare body
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("category", category);
+        body.add("uploaded_file", new ByteArrayResource(image.getBytes()) {
+            @Override
+            public String getFilename() {
+                return image.getOriginalFilename();
+            }
+        });
+
+        // Send request to external API
+        String validationApiUrl = "https://api-products-validator.cfapps.us10-001.hana.ondemand.com/validate"; // Replace with actual API URL
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    validationApiUrl, requestEntity, String.class
+            );
+
+            // Return validation response
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                String rawResponse = response.getBody();
+                return parseRawResponse(rawResponse);
+            } else {
+                throw new RuntimeException("Validation API returned error: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error during image validation: " + e.getMessage());
+        }
+    }
+    private ImageValidationResponse parseRawResponse(String rawResponse) {
+        ImageValidationResponse response = new ImageValidationResponse();
+        rawResponse = rawResponse.replace("\\n", "\n");
+        String[] lines = rawResponse.split("\n");
+        for (String line : lines) {
+            if (line.startsWith("\"Result:")) {
+                response.setResult(line.substring(8).trim());
+            } else if (line.startsWith("Confidence:")) {
+                response.setConfidence(line.substring(11).trim());
+            } else if (line.startsWith("Reasoning:")) {
+                response.setReasoning(line.substring(10).trim());
+            }
+        }
+        return response;
+    }
+
+
 }

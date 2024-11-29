@@ -2,6 +2,7 @@ package com.springboot.blog.controller;
 
 import com.springboot.blog.payload.PostDto;
 import com.springboot.blog.payload.PostResponse;
+import com.springboot.blog.payload.PostResponseWrapper;
 import com.springboot.blog.service.PostService;
 import com.springboot.blog.exception.RateLimitExceededException;
 import com.springboot.blog.utils.AppConstants;
@@ -13,7 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.http.MediaType;
 import jakarta.validation.Valid;
 import java.util.List;
 
@@ -23,6 +24,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Duration;
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/posts")
@@ -68,8 +70,8 @@ public class PostController {
     )
     // create blog post rest api
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping
-    public ResponseEntity<PostDto> createPost(@Valid @RequestBody PostDto postDto){
+    @PostMapping(consumes={MediaType.MULTIPART_FORM_DATA_VALUE},produces = {MediaType.APPLICATION_JSON_VALUE})
+    public ResponseEntity<PostResponseWrapper> createPost(@Valid @ModelAttribute PostDto postDto) throws IOException {
         return new ResponseEntity<>(postService.createPost(postDto), HttpStatus.CREATED);
     }
 
@@ -125,8 +127,8 @@ public class PostController {
     )
     // update post by id rest api
     @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/{id}")
-    public ResponseEntity<PostDto> updatePost(@Valid @RequestBody PostDto postDto, @PathVariable(name = "id") long id){
+    @PutMapping(value="/{id}",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PostDto> updatePost(@Valid @ModelAttribute PostDto postDto, @PathVariable(name = "id") long id) throws IOException {
 
         PostDto postResponse = postService.updatePost(postDto, id);
 
