@@ -9,6 +9,9 @@ import com.springboot.blog.repository.CategoryRepository;
 import com.springboot.blog.repository.PostRepository;
 import com.springboot.blog.service.PostService;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -51,6 +54,7 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
+    @Cacheable(value = "posts", key = "#pageNo + '-' + #pageSize + '-' + #sortBy + '-' + #sortDir")
     public PostResponse getAllPosts(int pageNo, int pageSize, String sortBy, String sortDir) {
 
         Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending()
@@ -78,12 +82,14 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
+    @Cacheable(value = "postById", key = "#id")
     public PostDto getPostById(long id) {
         Post post = postRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Post", "id", id));
         return mapToDTO(post);
     }
 
     @Override
+    @CacheEvict(value = "posts", key = "#postDto.categoryId")
     public PostDto updatePost(PostDto postDto, long id) {
         // get post by id from the database
         Post post = postRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Post", "id", id));
@@ -100,6 +106,7 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
+    @CacheEvict(value = "postById", key = "#id")
     public void deletePostById(long id) {
         // get post by id from the database
         Post post = postRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Post", "id", id));
@@ -107,6 +114,7 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
+    @Cacheable(value = "postsByCategory", key = "#categoryId")
     public List<PostDto> getPostsByCategory(Long categoryId) {
 
         Category category = categoryRepository.findById(categoryId)
