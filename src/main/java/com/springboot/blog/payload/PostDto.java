@@ -5,6 +5,8 @@ import lombok.Data;
 
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.Set;
 
 @Data
@@ -44,4 +46,7 @@ public class PostDto {
             description = "Blog Post Category"
     )
     private Long categoryId;
+    private MultipartFile image;
+    private String imageUrl;
+
 }
