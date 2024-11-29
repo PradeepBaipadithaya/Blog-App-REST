@@ -1,8 +1,10 @@
 package com.springboot.blog.controller;
 
 import com.springboot.blog.entity.Logo;
-import com.springboot.blog.repository.LogoRepository;
+import com.springboot.blog.service.LogoService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +20,35 @@ import java.io.IOException;
 public class LogoController {
 
     @Autowired
-    private LogoRepository logoRepository;
+    private LogoService logoService;
 
+    @Operation(
+            summary = "Upload a new logo",
+            description = "Uploads a logo with a title to the database.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    content = @Content(
+                            mediaType = "multipart/form-data",
+                            schema = @Schema(type = "object")
+                    )
+            )
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logo uploaded successfully!"),
+            @ApiResponse(responseCode = "500", description = "Error uploading file")
+    })
+    @PostMapping("/upload")
+    public ResponseEntity<?> uploadLogo(
+            @RequestParam("id") Long id,
+            @RequestParam("title") String title,
+            @RequestParam("logo") MultipartFile logoFile) {
+        try {
+            Logo logo = logoService.uploadLogo(id, title, logoFile);
+            return ResponseEntity.ok("Logo uploaded successfully!");
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error uploading file: " + e.getMessage());
+        }
+    }
 
     @Operation(summary = "Get logo by ID", description = "Retrieves a logo entity by its ID.")
     @ApiResponses({
@@ -28,13 +57,11 @@ public class LogoController {
     })
     @GetMapping("/{id}")
     public ResponseEntity<?> getLogo(@PathVariable Long id) {
-        Logo logo = logoRepository.findById(id).orElse(null);
-
+        Logo logo = logoService.getLogoById(id);
         if (logo == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body("Logo not found for id: " + id);
         }
-
         return ResponseEntity.ok(logo);
     }
 
@@ -45,37 +72,13 @@ public class LogoController {
     })
     @GetMapping("/{id}/image")
     public ResponseEntity<byte[]> getLogoImage(@PathVariable Long id) {
-        Logo logo = logoRepository.findById(id).orElse(null);
-
-        if (logo == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(null);
+        byte[] imageData = logoService.getLogoImageById(id);
+        if (imageData == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
-
         return ResponseEntity.ok()
                 .header("Content-Type", "image/png")
-                .body(logo.getLogoData());
-    }
-    @Operation(summary = "Upload a new logo", description = "Uploads a logo with a title to the database.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Logo uploaded successfully!"),
-            @ApiResponse(responseCode = "500", description = "Error uploading file")
-    })
-    @PostMapping(value = "/upload", consumes = {"multipart/form-data"})
-    public ResponseEntity<?> uploadLogo(
-            @RequestParam("title") String title,
-            @RequestParam("logo") MultipartFile logoFile) {
-        try {
-            Logo logo = new Logo();
-            logo.setTitle(title);
-            logo.setLogoData(logoFile.getBytes());
-            logoRepository.save(logo);
-
-            return ResponseEntity.ok("Logo uploaded successfully!");
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error uploading file: " + e.getMessage());
-        }
+                .body(imageData);
     }
 
     @Operation(summary = "Update logo by ID", description = "Updates an existing logo's title and image by its ID.")
@@ -84,28 +87,21 @@ public class LogoController {
             @ApiResponse(responseCode = "404", description = "Logo not found for the given ID"),
             @ApiResponse(responseCode = "500", description = "Error updating logo")
     })
-    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
+    @PutMapping("/{id}")
     public ResponseEntity<?> updateLogo(
             @PathVariable Long id,
             @RequestParam("title") String title,
             @RequestParam("logo") MultipartFile logoFile) {
         try {
-            Logo existingLogo = logoRepository.findById(id).orElse(null);
-
-            if (existingLogo == null) {
+            Logo updatedLogo = logoService.updateLogo(id, title, logoFile);
+            if (updatedLogo == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body("Logo not found for id: " + id);
             }
-
-            existingLogo.setTitle(title);
-            existingLogo.setLogoData(logoFile.getBytes());
-            logoRepository.save(existingLogo);
-
             return ResponseEntity.ok("Logo updated successfully!");
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error updating logo: " + e.getMessage());
         }
     }
-
 }
