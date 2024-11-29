@@ -66,26 +66,17 @@ public class PostServiceImpl implements PostService {
         // convert DTO to entity
         Post post = mapToEntity(postDto);
         post.setCategory(category);
-        if (imageFile != null)
-            validationResponse = validateImageWithAPI(imageFile, post.getCategory().getName());//Send Image to External API
-
-
-        assert validationResponse != null;
-        if (Objects.equals(validationResponse.getResult(), "No")) {
-            throw new InvalidImageException("Image does not matches with the Category-Reason: "+validationResponse.getReasoning(),"Invalid image");
+        if (imageFile != null && !imageFile.isEmpty()){
+            validationResponse = validateImageWithAPI(imageFile, post.getCategory().getName()); //Send Image to External API
+                if (Objects.equals(validationResponse.getResult(), "No")) {
+                    throw new InvalidImageException("Image does not matches with the Category, Reason: "+validationResponse.getReasoning(),
+                    "Invalid image");
+        } 
         }
-        if (Objects.equals(validationResponse.getResult(), "Yes")) {
-            System.out.println("Response: " + validationResponse);
-
             Post newPost = postRepository.save(post);
-
             // convert entity to DTO
             PostDto postResponse = mapToDTO(newPost);
             return new PostResponseWrapper(validationResponse,postResponse);
-        }
-        return null;
-
-
     }
 
     @Override
@@ -139,22 +130,15 @@ public class PostServiceImpl implements PostService {
         post.setDescription(postDto.getDescription());
         post.setContent(postDto.getContent());
         post.setCategory(category);
-        if (imageFile != null)
+        if (imageFile != null && !imageFile.isEmpty()){
             validationResponse = validateImageWithAPI(imageFile, post.getCategory().getName());//Send Image to External API
-
-
-        assert validationResponse != null;
         if (Objects.equals(validationResponse.getResult(), "No")) {
             throw new InvalidImageException("Image does not matches with the Category-Reason: "+validationResponse.getReasoning(),"Invalid image");
-        }
-        if (Objects.equals(validationResponse.getResult(), "Yes")) {
-            System.out.println("Response: " + validationResponse);
+        }}
 
             Post updatedPost = postRepository.save(post);
             return mapToDTO(updatedPost);
-        }
-
-        return null;
+        
     }
 
     @Override
