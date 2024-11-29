@@ -70,4 +70,26 @@ public class CategoryServiceImpl implements CategoryService {
 
         categoryRepository.delete(category);
     }
+
+    @Override
+    public CategoryDto partialUpdateCategory(CategoryDto categoryDto, Long id) {
+        // Fetch the existing category by ID
+        Category existingCategory = categoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id));
+
+        // Update only non-null fields
+        if (categoryDto.getName() != null) {
+            existingCategory.setName(categoryDto.getName());
+        }
+        if (categoryDto.getDescription() != null) {
+            existingCategory.setDescription(categoryDto.getDescription());
+        }
+
+        // Save the updated entity back to the database
+        Category updatedCategory = categoryRepository.save(existingCategory);
+
+        // Convert the updated entity to DTO and return it
+        return modelMapper.map(updatedCategory, CategoryDto.class);
+    }
+
 }
