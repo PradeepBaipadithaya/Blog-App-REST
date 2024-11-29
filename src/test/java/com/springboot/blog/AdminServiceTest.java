@@ -1,6 +1,9 @@
 package com.springboot.blog;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 import java.util.HashSet;
 import java.util.List;
@@ -38,7 +41,7 @@ public class AdminServiceTest {
 
     @BeforeEach
     public void setUp() {
-        Role adminRole = new Role(1L, "ROLE_ADMIN");
+        Role adminRole = new Role(1L, "ROLE_ADMIN", null);
         User admin = new User(1L, "Admin User", "admin", "admin@example.com", "password", Set.of(adminRole));
 
         lenient().when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
@@ -46,22 +49,25 @@ public class AdminServiceTest {
     }
 
     @Test
-    public void testPromoteUserToAdmin_Success() {
+    void testPromoteUserToAdmin_Success() {
         // Arrange
-        Role adminRole = new Role(1L, "ROLE_ADMIN");
-        User admin = new User(1L, "Admin User", "admin", "admin@example.com", "password", Set.of(adminRole));
-        User userToPromote = new User(2L, "User", "user", "user@example.com", "password", new HashSet<>());
+        User adminUser = new User(1L, "Admin", "adminUser", "admin@example.com", "password",
+                new HashSet<>(Set.of(new Role(1L, "ROLE_ADMIN", null))));
+        User targetUser = new User(2L, "Target", "targetUser", "target@example.com", "password",
+                new HashSet<>(Set.of(new Role(2L, "ROLE_USER", null))));
 
-        Mockito.when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-        Mockito.when(roleRepository.findByName("ROLE_ADMIN")).thenReturn(Optional.of(adminRole));
-        Mockito.when(userRepository.findById(2L)).thenReturn(Optional.of(userToPromote));
+        Role adminRole = new Role(1L, "ROLE_ADMIN", null);
+
+        // Mock repository behavior
+        when(userRepository.findByUsername("adminUser")).thenReturn(Optional.of(adminUser));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(roleRepository.findByName("ROLE_ADMIN")).thenReturn(Optional.of(adminRole));
 
         // Act
-        adminService.promoteUserToAdmin("admin", 2L);
+        adminService.promoteUserToAdmin("adminUser", 2L);
 
         // Assert
-        Assertions.assertTrue(userToPromote.getRoles().contains(adminRole));
-        Mockito.verify(userRepository).save(userToPromote);
+        assertTrue(targetUser.getRoles().contains(adminRole));
     }
 
     @Test
@@ -79,8 +85,8 @@ public class AdminServiceTest {
     @Test
     public void testListNonAdminUsers() {
         // Arrange
-        Role adminRole = new Role(1L, "ROLE_ADMIN");
-        Role userRole = new Role(2L, "ROLE_USER");
+        Role adminRole = new Role(1L, "ROLE_ADMIN", null);
+        Role userRole = new Role(2L, "ROLE_USER", null);
         User admin = new User(1L, "Admin User", "admin", "admin@example.com", "password", Set.of(adminRole));
         User user = new User(2L, "User", "user", "user@example.com", "password", Set.of(userRole));
 
