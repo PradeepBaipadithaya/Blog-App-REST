@@ -16,7 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 @RestController
-@RequestMapping("/api/logo")
+@RequestMapping("/api/v2/logo")
 public class LogoController {
 
     @Autowired
