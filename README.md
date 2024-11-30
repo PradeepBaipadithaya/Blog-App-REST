@@ -17,6 +17,8 @@
 ## Swagger Documentation
 [Click Here](http://localhost:8080/swagger-ui/index.html)
 
+## Presentation
+[Click Here](https://sapit-core-playground-vole.ai-launchpad.prod.eu-central-1.aws.apps.ml.hana.ondemand.com/aic/index.html#/generativeaihub?workspace=sap-genai-xl&resourceGroup=default&/g/promptchat)
 ## Team Members:
 1. Pradeep Kumar [93017]
 2. Krishnanand Venkatesh Bhat [93001]
